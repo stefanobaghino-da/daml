@@ -28,7 +28,7 @@ import scala.language.higherKinds
   */
 object VersionTimeline {
   import LanguageVersion.Minor.Dev
-  import \&/.{Both, That, This}
+  import \&/._
 
   type AllVersions[:&:[_, _]] = (ValueVersion :&: TransactionVersion) :&: LanguageVersion
   type Release = AllVersions[\&/]
@@ -39,23 +39,9 @@ object VersionTimeline {
     */
   private[lf] val inAscendingOrder: NonEmptyList[Release] =
     NonEmptyList(
-      Both(Both(ValueVersion("1"), TransactionVersion("1")), LanguageVersion(LMV.V1, "0")),
-      Both(Both(ValueVersion("2"), TransactionVersion("2")), LanguageVersion(LMV.V1, "1")),
-      This(That(TransactionVersion("3"))),
-      This(Both(ValueVersion("3"), TransactionVersion("4"))),
-      This(That(TransactionVersion("5"))),
-      That(LanguageVersion(LMV.V1, "2")),
-      Both(This(ValueVersion("4")), LanguageVersion(LMV.V1, "3")),
-      This(That(TransactionVersion("6"))),
-      This(That(TransactionVersion("7"))),
-      That(LanguageVersion(LMV.V1, "4")),
-      That(LanguageVersion(LMV.V1, "5")),
-      This(That(TransactionVersion("8"))),
-      Both(This(ValueVersion("5")), LanguageVersion(LMV.V1, "6")),
-      Both(This(ValueVersion("6")), LanguageVersion(LMV.V1, "7")),
-      This(That(TransactionVersion("9"))),
+      Both(Both(ValueVersion("6"), TransactionVersion("10")), LanguageVersion(LMV.V1, "6")),
+      That(LanguageVersion(LMV.V1, "7")),
       That(LanguageVersion(LMV.V1, "8")),
-      This(That(TransactionVersion("10"))),
       // add new versions above this line (but see more notes below)
       Both(Both(ValueVersion("7"), TransactionVersion("11")), LanguageVersion(LMV.V1, Dev)),
       // do *not* backfill to make more Boths, because such would

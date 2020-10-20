@@ -131,12 +131,6 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
       testRoundTripWithVersion
     )
 
-    "do ContractId in any ValueVersion > 1.7" in forAll(
-      coidValueGen,
-      valueVersionGen(ValueVersions.minContractIdV1))(
-      testRoundTripWithVersion
-    )
-
     "do lists" in {
       forAll(valueListGen) { v: ValueList[ContractId] =>
         testRoundTrip(v)
@@ -218,7 +212,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
 
           val actual: proto.VersionedValue = assertRight(
             ValueCoder
-              .encodeVersionedValueWithCustomVersion(
+              .encodeVersionedValue(
                 ValueCoder.CidEncoder,
                 VersionedValue(badVer, value),
               ),
@@ -234,7 +228,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
 
           val protoWithUnsupportedVersion: proto.VersionedValue =
             assertRight(
-              ValueCoder.encodeVersionedValueWithCustomVersion(
+              ValueCoder.encodeVersionedValue(
                 ValueCoder.CidEncoder,
                 VersionedValue(badVer, value),
               ),
@@ -270,9 +264,7 @@ class ValueCoderSpec extends WordSpec with Matchers with EitherAssertions with P
 
     val encoded: proto.VersionedValue = assertRight(
       ValueCoder
-        .encodeVersionedValueWithCustomVersion(
-          ValueCoder.CidEncoder,
-          VersionedValue(version, value0)),
+        .encodeVersionedValue(ValueCoder.CidEncoder, VersionedValue(version, value0)),
     )
     val decoded: VersionedValue[ContractId] = assertRight(
       ValueCoder.decodeVersionedValue(ValueCoder.CidDecoder, encoded),

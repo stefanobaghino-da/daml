@@ -61,10 +61,8 @@ object ValueCoder {
         cid: ContractId
     ): Either[EncodeError, Either[String, proto.ContractId]] =
       Right(
-        Either.cond(
-          !useOldStringField(sv),
+        Right(
           proto.ContractId.newBuilder.setRelative(false).setContractId(cid.coid).build,
-          cid.coid,
         )
       )
   }
@@ -101,23 +99,12 @@ object ValueCoder {
         stringForm: String,
         structForm: proto.ContractId,
     ): Either[DecodeError, Option[ContractId]] =
-      if (useOldStringField(sv)) {
-        if (structForm != proto.ContractId.getDefaultInstance) {
-          Left(DecodeError(sv, isTooOldFor = "message ContractId"))
-        } else {
-          if (stringForm.isEmpty)
-            Right(None)
-          else
-            stringToCidString(stringForm).map(Some(_))
-        }
-      } else {
-        if (stringForm.nonEmpty)
-          Left(DecodeError(s"${sv.showsVersion} is too new to use string contract IDs"))
-        else if (structForm.getContractId.isEmpty)
-          Right(None)
-        else
-          stringToCidString(structForm.getContractId).map(Some(_))
-      }
+      if (stringForm.nonEmpty)
+        Left(DecodeError(s"${sv.showsVersion} is too new to use string contract IDs"))
+      else if (structForm.getContractId.isEmpty)
+        Right(None)
+      else
+        stringToCidString(structForm.getContractId).map(Some(_))
 
   }
 
@@ -194,27 +181,6 @@ object ValueCoder {
     decodeVersionedValue(decodeCid, protoValue0) map (_.value)
 
   /**
-    * Serializes [[Value]] to protobuf, library decides which [[ValueVersion]] to assign.
-    * See [[ValueVersions.assignVersion]].
-    *
-    * @param value value to be written
-    * @param encodeCid a function to stringify contractIds (it's better to be invertible)
-    * @tparam Cid ContractId type
-    * @return protocol buffer serialized values
-    */
-  def encodeVersionedValue[Cid](
-      encodeCid: EncodeCid[Cid],
-      value: Value[Cid],
-      supportedVersions: VersionRange[ValueVersion],
-  ): Either[EncodeError, proto.VersionedValue] =
-    ValueVersions
-      .assignVersion(value, supportedVersions)
-      .fold(
-        err => Left(EncodeError(err)),
-        version => encodeVersionedValueWithCustomVersion(encodeCid, VersionedValue(version, value)),
-      )
-
-  /**
     * Serializes [[VersionedValue]] to protobuf, caller provides the [[ValueVersion]].
     *
     * @param versionedValue value to be written
@@ -222,7 +188,7 @@ object ValueCoder {
     * @tparam Cid ContractId type
     * @return protocol buffer serialized values
     */
-  def encodeVersionedValueWithCustomVersion[Cid](
+  def encodeVersionedValue[Cid](
       encodeCid: EncodeCid[Cid],
       versionedValue: VersionedValue[Cid],
   ): Either[EncodeError, proto.VersionedValue] =
@@ -275,11 +241,7 @@ object ValueCoder {
           case proto.Value.SumCase.UNIT =>
             ValueUnit
           case proto.Value.SumCase.NUMERIC =>
-            val d =
-              if (useLegacyDecimal(valueVersion))
-                Decimal.fromString(protoValue.getNumeric)
-              else
-                Numeric.fromString(protoValue.getNumeric)
+            val d = Numeric.fromString(protoValue.getNumeric)
             d.fold(e => throw Err("error decoding decimal: " + e), ValueNumeric)
           case proto.Value.SumCase.INT64 =>
             ValueInt64(protoValue.getInt64)
@@ -325,7 +287,6 @@ object ValueCoder {
             ValueVariant(id, identifier(variant.getConstructor), go(newNesting, variant.getValue))
 
           case proto.Value.SumCase.ENUM =>
-            assertSince(ValueVersions.minEnum, "Value.SumCase.ENUM")
             val enum = protoValue.getEnum
             val id =
               if (enum.getEnumId == ValueOuterClass.Identifier.getDefaultInstance) None
@@ -360,7 +321,6 @@ object ValueCoder {
             )
 
           case proto.Value.SumCase.OPTIONAL =>
-            assertSince(ValueVersions.minOptional, "Value.SumCase.OPTIONAL")
             val option = protoValue.getOptional
             val mbV =
               if (option.getValue == ValueOuterClass.Value.getDefaultInstance) None
@@ -368,7 +328,6 @@ object ValueCoder {
             ValueOptional(mbV)
 
           case proto.Value.SumCase.MAP =>
-            assertSince(ValueVersions.minMap, "Value.SumCase.MAP")
             val entries = ImmArray(
               protoValue.getMap.getEntriesList.asScala.map(entry =>
                 entry.getKey -> go(newNesting, entry.getValue)),
@@ -434,10 +393,7 @@ object ValueCoder {
           case ValueInt64(i) =>
             builder.setInt64(i).build()
           case ValueNumeric(d) =>
-            if (useLegacyDecimal(valueVersion))
-              builder.setNumeric(Numeric.toUnscaledString(d)).build()
-            else
-              builder.setNumeric(Numeric.toString(d)).build()
+            builder.setNumeric(Numeric.toString(d)).build()
           case ValueText(t) =>
             builder.setText(t).build()
           case ValueParty(p) =>
@@ -536,17 +492,17 @@ object ValueCoder {
     }
   }
 
-  // The codomain and domain of the below functions are subject to change
-  // without warning or type change; they are stable with respect to
-  // each other and nothing else.  As such, they are unsafe for
-  // general usage
-
+  // The below functions are for testing ValueCoder only.
+  // They will be drop in a near futur.
   private[value] def valueToBytes[Cid](
       encodeCid: EncodeCid[Cid],
       v: Value[Cid],
       supportedVersions: VersionRange[ValueVersion] = ValueVersions.DevOutputVersions,
   ): Either[EncodeError, Array[Byte]] =
-    encodeVersionedValue(encodeCid, v, supportedVersions).map(_.toByteArray)
+    for {
+      version <- ValueVersions.assignVersion(v, supportedVersions).left.map(EncodeError(_))
+      encodedValue <- encodeVersionedValue(encodeCid, VersionedValue(version, v))
+    } yield encodedValue.toByteArray
 
   private[value] def valueFromBytes[Cid](
       decodeCid: DecodeCid[Cid],
@@ -554,10 +510,4 @@ object ValueCoder {
   ): Either[DecodeError, Value[Cid]] = {
     decodeValue(decodeCid, proto.VersionedValue.parseFrom(bytes))
   }
-
-  private[this] def useOldStringField(sv: SpecifiedVersion): Boolean =
-    sv precedes ValueVersions.minContractIdStruct
-
-  private[this] def useLegacyDecimal(sv: SpecifiedVersion): Boolean =
-    sv precedes ValueVersions.minNumeric
 }

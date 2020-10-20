@@ -4,7 +4,6 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.EitherAssertions
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, PackageId, Party, QualifiedName}
 import com.daml.lf.transaction.Node.{GenNode, NodeCreate, NodeExercises, NodeFetch}
@@ -12,8 +11,6 @@ import com.daml.lf.transaction.{Transaction => Tx, TransactionOuterClass => prot
 import com.daml.lf.value.Value.{ContractInst, ValueParty, VersionedValue}
 import com.daml.lf.value.ValueCoder.{DecodeError, EncodeError}
 import com.daml.lf.value.{Value, ValueCoder, ValueVersion, ValueVersions}
-import com.daml.lf.transaction.TransactionVersions._
-import com.daml.lf.transaction.VersionTimeline.Implicits._
 import org.scalatest.prop.PropertyChecks
 import org.scalatest.{Inside, Matchers, WordSpec}
 
@@ -190,7 +187,7 @@ class TransactionCoderSpec
                     encodedTx,
                   ),
               )
-              decodedVersionedTx.transaction shouldBe minimalistTx(txVer, tx)
+              decodedVersionedTx.transaction shouldBe minimalistTx(tx)
           }
         }
       }
@@ -230,9 +227,8 @@ class TransactionCoderSpec
                       )),
                   ) {
                     case (Right(decWithMin), Right(decWithMax)) =>
-                      decWithMin.transaction shouldBe minimalistTx(txvMin, tx)
-                      decWithMin.transaction shouldBe
-                        minimalistTx(txvMin, decWithMax.transaction)
+                      decWithMin.transaction shouldBe minimalistTx(tx)
+                      decWithMin.transaction shouldBe minimalistTx(decWithMax.transaction)
                   }
               }
             }
@@ -412,23 +408,12 @@ class TransactionCoderSpec
     t copy (nodes = t.nodes.transform((_, gn) => f(gn)))
 
   def minimalistTx[Nid, Cid, Val](
-      txvMin: TransactionVersion,
       tx: GenTransaction[Nid, Cid, Val],
-  ): GenTransaction[Nid, Cid, Val] = {
-    def condApply(
-        before: TransactionVersion,
-        f: GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val],
-    ): GenNode[Nid, Cid, Val] => GenNode[Nid, Cid, Val] =
-      if (txvMin precedes before) f else identity
-
+  ): GenTransaction[Nid, Cid, Val] =
     transactionWithout(
       tx,
-      condApply(minMaintainersInExercise, withoutMaintainersInExercise)
-        .compose(condApply(minContractKeyInExercise, withoutContractKeyInExercise))
-        .compose(condApply(minExerciseResult, withoutExerciseResult))
-        .compose(withoutByKeyFlag[Nid, Cid, Val]),
+      withoutByKeyFlag[Nid, Cid, Val],
     )
-  }
 
   private def absCid(s: String): Value.ContractId =
     Value.ContractId.assertFromString(s)

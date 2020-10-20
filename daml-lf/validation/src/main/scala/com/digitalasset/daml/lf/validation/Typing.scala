@@ -7,7 +7,7 @@ import com.daml.lf.data.{ImmArray, Numeric, Struct}
 import com.daml.lf.data.Ref._
 import com.daml.lf.language.Ast._
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{LanguageVersion, LanguageMajorVersion => LMV}
+import com.daml.lf.language.LanguageVersion
 import com.daml.lf.validation.AlphaEquiv._
 import com.daml.lf.validation.Util._
 import com.daml.lf.validation.traversable.TypeTraversable
@@ -278,11 +278,9 @@ private[validation] object Typing {
 
     /* Env Ops */
 
-    private val supportsFlexibleControllers =
-      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "2"))
+    private val supportsFlexibleControllers = true
 
-    private val supportsComplexContractKeys =
-      LanguageVersion.ordering.gteq(languageVersion, LanguageVersion(LMV.V1, "4"))
+    private val supportsComplexContractKeys = true
 
     private def introTypeVar(v: TypeVarName, k: Kind): Env = {
       copy(tVars = tVars + (v -> k))

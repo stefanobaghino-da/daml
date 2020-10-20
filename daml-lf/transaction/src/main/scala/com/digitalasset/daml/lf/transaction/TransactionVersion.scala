@@ -24,15 +24,6 @@ private[lf] object TransactionVersions
   import VersionTimeline._
   import VersionTimeline.Implicits._
 
-  private[this] val minVersion = TransactionVersion("1")
-  private[transaction] val minKeyOrLookupByKey = TransactionVersion("3")
-  private[transaction] val minFetchActors = TransactionVersion("5")
-  private[transaction] val minNoControllers = TransactionVersion("6")
-  private[transaction] val minExerciseResult = TransactionVersion("7")
-  private[transaction] val minContractKeyInExercise = TransactionVersion("8")
-  private[transaction] val minMaintainersInExercise = TransactionVersion("9")
-  private[transaction] val minContractKeyInFetch = TransactionVersion("10")
-
   // Older versions are deprecated https://github.com/digital-asset/daml/issues/5220
   val StableOutputVersions: VersionRange[TransactionVersion] =
     VersionRange(TransactionVersion("10"), TransactionVersion("10"))
@@ -43,7 +34,7 @@ private[lf] object TransactionVersions
   val Empty: VersionRange[TransactionVersion] =
     VersionRange(acceptedVersions.last, acceptedVersions.head)
 
-  def assignVersion(
+  private[transaction] def assignVersion(
       a: GenTransaction.WithTxValue[_, Value.ContractId],
       supportedVersions: VersionRange[TransactionVersion] = DevOutputVersions,
   ): Either[String, TransactionVersion] = {
@@ -54,60 +45,9 @@ private[lf] object TransactionVersions
       VersionTimeline.latestWhenAllPresent(
         supportedVersions.min,
         // latest version used by any value
-        a.foldValues(ValueVersion("1")) { (z, vv) =>
+        a.foldValues(ValueVersion("6")) { (z, vv) =>
           VersionTimeline.maxVersion(z, vv.version)
-        },
-        // a NodeCreate with defined `key` or a NodeLookupByKey
-        // implies minimum version 3
-        if (a.nodes.values.exists {
-            case nc: Node.NodeCreate[_, _] => nc.key.isDefined
-            case _: Node.NodeLookupByKey[_, _] => true
-            case _: Node.NodeFetch[_, _] | _: Node.NodeExercises[_, _, _] => false
-          }) minKeyOrLookupByKey
-        else
-          minVersion,
-        // a NodeFetch with actingParties implies minimum version 5
-        if (a.nodes.values
-            .exists { case nf: Node.NodeFetch[_, _] => nf.actingParties.nonEmpty; case _ => false })
-          minFetchActors
-        else
-          minVersion,
-        if (a.nodes.values
-            .exists {
-              case ne: Node.NodeExercises[_, _, _] => ne.exerciseResult.isDefined
-              case _ => false
-            })
-          minExerciseResult
-        else
-          minVersion,
-        if (a.nodes.values
-            .exists {
-              case ne: Node.NodeExercises[_, _, _] => ne.key.isDefined
-              case _ => false
-            })
-          minContractKeyInExercise
-        else
-          minVersion,
-        if (a.nodes.values
-            .exists {
-              case ne: Node.NodeExercises[_, _, _] =>
-                ne.key match {
-                  case Some(Node.KeyWithMaintainers(key @ _, maintainers)) => maintainers.nonEmpty
-                  case _ => false
-                }
-              case _ => false
-            })
-          minMaintainersInExercise
-        else
-          minVersion,
-        if (a.nodes.values
-            .exists {
-              case nf: Node.NodeFetch[_, _] => nf.key.isDefined
-              case _ => false
-            })
-          minContractKeyInFetch
-        else
-          minVersion,
+        }
       )
 
     Either.cond(
@@ -115,7 +55,6 @@ private[lf] object TransactionVersions
       inferredVersion,
       s"inferred version $inferredVersion is not supported"
     )
-
   }
 
   def asVersionedTransaction(

@@ -10,8 +10,7 @@ import com.daml.bazeltools.BazelRunfiles._
 import com.daml.lf.archive.Reader.ParseError
 import com.daml.lf.data.{Decimal, Numeric, Ref}
 import com.daml.lf.language.Util._
-import com.daml.lf.language.{Ast, LanguageMinorVersion, LanguageVersion => LV}
-import LanguageMinorVersion.Implicits._
+import com.daml.lf.language.{Ast, LanguageVersion => LV}
 import com.daml.lf.data.ImmArray.ImmArraySeq
 import com.daml.lf.data.Ref.DottedName
 import com.daml.daml_lf_dev.DamlLf1
@@ -73,7 +72,7 @@ class DecodeV1Spec
 
   private val preNumericMinVersions = Table(
     "minVersion",
-    List(1, 4, 6).map(i => LV.Minor.Stable(i.toString)): _*
+    List(6).map(i => LV.Minor.Stable(i.toString)): _*
   )
 
   private val postNumericMinVersions = Table(
@@ -84,7 +83,7 @@ class DecodeV1Spec
 
   private val preGenericComparisonVersion = Table(
     "minVersion",
-    List(1, 4, 6, 8).map(i => LV.Minor.Stable(i.toString)): _*
+    List(6, 8).map(i => LV.Minor.Stable(i.toString)): _*
   )
 
   private val postGenericComparisonVersion = Table(
@@ -94,7 +93,7 @@ class DecodeV1Spec
 
   private val preAnyTypeVersions = Table(
     "minVersion",
-    List("1", "4", "6").map(LV.Minor.Stable): _*
+    List("6").map(LV.Minor.Stable): _*
   )
 
   private val postAnyTypeVersions = Table(
@@ -105,7 +104,7 @@ class DecodeV1Spec
 
   private val prePackageMetadataVersions = Table(
     "minVersion",
-    List(1, 4, 6, 7).map(i => LV.Minor.Stable(i.toString)): _*
+    List(6, 7).map(i => LV.Minor.Stable(i.toString)): _*
   )
 
   private val postPackageMetadataVersions = Table(
@@ -116,7 +115,7 @@ class DecodeV1Spec
 
   private val preContractIdTextConversionVersions = Table(
     "minVersion",
-    List(1, 4, 6, 8).map(i => LV.Minor.Stable(i.toString)): _*
+    List(6, 8).map(i => LV.Minor.Stable(i.toString)): _*
   )
 
   private val preInterningVersions = Table(
@@ -140,15 +139,6 @@ class DecodeV1Spec
   )
 
   "decodeKind" should {
-
-    "reject nat kind if lf version < 1.7" in {
-
-      val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
-
-      forEvery(preNumericMinVersions) { minVersion =>
-        an[ParseError] shouldBe thrownBy(moduleDecoder(minVersion).decodeKind(input))
-      }
-    }
 
     "accept nat kind if lf version >= 1.7" in {
       val input = DamlLf1.Kind.newBuilder().setNat(DamlLf1.Unit.newBuilder()).build()
@@ -353,59 +343,44 @@ class DecodeV1Spec
         .setPrimLit(DamlLf1.PrimLit.newBuilder().setNumericInternedStr(id))
         .build()
 
-    val decimalBuiltinTestCases = Table[DamlLf1.BuiltinFunction, LanguageMinorVersion, Ast.Expr](
-      ("decimal builtins", "minVersion", "expected output"),
+    val decimalBuiltinTestCases = Table[DamlLf1.BuiltinFunction, Ast.Expr](
+      ("decimal builtins", "expected output"),
       (
         DamlLf1.BuiltinFunction.ADD_DECIMAL,
-        "1",
         Ast.ETyApp(Ast.EBuiltin(Ast.BAddNumeric), TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.SUB_DECIMAL,
-        "1",
         Ast.ETyApp(Ast.EBuiltin(Ast.BSubNumeric), TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.MUL_DECIMAL,
-        "1",
         Ast.ETyApp(
           Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BMulNumeric), TDecimalScale), TDecimalScale),
           TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.DIV_DECIMAL,
-        "1",
         Ast.ETyApp(
           Ast.ETyApp(Ast.ETyApp(Ast.EBuiltin(Ast.BDivNumeric), TDecimalScale), TDecimalScale),
           TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.ROUND_DECIMAL,
-        "1",
         Ast.ETyApp(Ast.EBuiltin(Ast.BRoundNumeric), TDecimalScale)),
-      (DamlLf1.BuiltinFunction.LEQ_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
-      (DamlLf1.BuiltinFunction.LESS_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
-      (
-        DamlLf1.BuiltinFunction.GEQ_DECIMAL,
-        "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDecimal)),
-      (
-        DamlLf1.BuiltinFunction.GREATER_DECIMAL,
-        "1",
-        Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDecimal)),
+      (DamlLf1.BuiltinFunction.LEQ_DECIMAL, Ast.ETyApp(Ast.EBuiltin(Ast.BLessEq), TDecimal)),
+      (DamlLf1.BuiltinFunction.LESS_DECIMAL, Ast.ETyApp(Ast.EBuiltin(Ast.BLess), TDecimal)),
+      (DamlLf1.BuiltinFunction.GEQ_DECIMAL, Ast.ETyApp(Ast.EBuiltin(Ast.BGreaterEq), TDecimal)),
+      (DamlLf1.BuiltinFunction.GREATER_DECIMAL, Ast.ETyApp(Ast.EBuiltin(Ast.BGreater), TDecimal)),
       (
         DamlLf1.BuiltinFunction.TO_TEXT_DECIMAL,
-        "1",
         Ast.ETyApp(Ast.EBuiltin(Ast.BToTextNumeric), TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.FROM_TEXT_DECIMAL,
-        "5",
         Ast.ETyApp(Ast.EBuiltin(Ast.BFromTextNumeric), TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.INT64_TO_DECIMAL,
-        "1",
         Ast.ETyApp(Ast.EBuiltin(Ast.BInt64ToNumeric), TDecimalScale)),
       (
         DamlLf1.BuiltinFunction.DECIMAL_TO_INT64,
-        "1",
         Ast.ETyApp(Ast.EBuiltin(Ast.BNumericToInt64), TDecimalScale)),
-      (DamlLf1.BuiltinFunction.EQUAL_DECIMAL, "1", Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
+      (DamlLf1.BuiltinFunction.EQUAL_DECIMAL, Ast.ETyApp(Ast.EBuiltin(Ast.BEqual), TDecimal)),
     )
 
     val numericBuiltinTestCases = Table(
@@ -497,9 +472,8 @@ class DecodeV1Spec
       forEvery(preNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
 
-        forEvery(decimalBuiltinTestCases) { (proto, minVersion, scala) =>
-          if (LV.Major.V1.minorVersionOrdering.gteq(version, minVersion))
-            decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
+        forEvery(decimalBuiltinTestCases) { (proto, scala) =>
+          decoder.decodeExpr(toProtoExpr(proto), "test") shouldBe scala
         }
       }
     }
@@ -547,7 +521,7 @@ class DecodeV1Spec
       forEvery(postNumericMinVersions) { version =>
         val decoder = moduleDecoder(version)
 
-        forEvery(decimalBuiltinTestCases) { (proto, _, _) =>
+        forEvery(decimalBuiltinTestCases) { (proto, _) =>
           an[ParseError] shouldBe thrownBy(decoder.decodeExpr(toProtoExpr(proto), "test"))
         }
       }

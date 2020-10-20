@@ -6,7 +6,7 @@ package com.daml.lf.validation
 import com.daml.lf.data.ImmArray
 import com.daml.lf.data.Ref.{Identifier, PackageId, QualifiedName}
 import com.daml.lf.language.Ast._
-import com.daml.lf.language.{LanguageMajorVersion, LanguageVersion}
+import com.daml.lf.language.{LanguageVersion}
 
 private[validation] object Serializability {
 
@@ -21,9 +21,7 @@ private[validation] object Serializability {
 
     import world._
 
-    private val supportsSerializablePolymorphicContractIds =
-      LanguageVersion.ordering
-        .gteq(languageVersion, LanguageVersion(LanguageMajorVersion.V1, "5"))
+    private val supportsSerializablePolymorphicContractIds = true
 
     def unserializable(reason: UnserializabilityReason): Nothing =
       throw EExpectedSerializableType(ctx, requirement, typeToSerialize, reason)
