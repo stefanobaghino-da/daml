@@ -30,6 +30,8 @@ import Value._
 import com.daml.lf.speedy.{InitialSeeding, SValue, svalue}
 import com.daml.lf.speedy.SValue._
 import com.daml.lf.command._
+import com.daml.lf.language.LanguageVersion
+import com.daml.lf.transaction.Node.GenNode
 import com.daml.lf.value.ValueVersions.assertAsVersionedValue
 import org.scalactic.Equality
 import org.scalatest.prop.TableDrivenPropertyChecks
@@ -1955,7 +1957,7 @@ object EngineTest {
   ): Either[Error, (Tx.Transaction, Tx.Metadata)] = {
     type Acc =
       (
-          HashMap[NodeId, Tx.Node],
+          HashMap[NodeId, GenNode.WithValue[NodeId, ContractId]],
           BackStack[NodeId],
           Boolean,
           BackStack[(NodeId, crypto.Hash)],
@@ -2022,10 +2024,11 @@ object EngineTest {
             }
             n = nodes.size
             nodeRenaming = (nid: NodeId) => NodeId(nid.index + n)
-            tr = tr1.transaction.mapNodeId(nodeRenaming)
+            tr = VersionedTransaction.map2(nodeRenaming, identity[ContractId])(tr1)
           } yield
             (
-              nodes ++ tr.nodes,
+              nodes ++ tr.nodes.mapValues(
+                GenNode.map3(identity, identity, (v: VersionedValue[ContractId]) => v.value)),
               roots :++ tr.roots,
               dependsOnTime || meta1.dependsOnTime,
               nodeSeeds :++ meta1.nodeSeeds.map { case (nid, seed) => nodeRenaming(nid) -> seed },
@@ -2037,7 +2040,14 @@ object EngineTest {
     iterate.map {
       case (nodes, roots, dependsOnTime, nodeSeeds, _, _) =>
         (
-          TxVersions.assertAsVersionedTransaction(GenTx(nodes, roots.toImmArray)),
+          data.assertRight(
+            TxVersions.asVersionedTransaction(
+              TxVersions.DevOutputVersions,
+              _ => LanguageVersion.default,
+              roots.toImmArray,
+              nodes
+            )
+          ),
           Tx.Metadata(
             submissionSeed = None,
             submissionTime = txMeta.submissionTime,

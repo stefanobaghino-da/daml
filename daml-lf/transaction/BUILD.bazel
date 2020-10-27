@@ -72,7 +72,7 @@ da_scala_test(
     silent_annotations = True,
     deps = [
         ":transaction",
-        ":transaction_java_proto",
+        #        ":transaction_java_proto",
         ":value_java_proto",
         "//daml-lf/data",
         "//daml-lf/interface",

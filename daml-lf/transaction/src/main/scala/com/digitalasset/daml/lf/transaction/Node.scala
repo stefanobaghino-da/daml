@@ -6,7 +6,15 @@ package transaction
 
 import com.daml.lf.data.{ImmArray, ScalazEqual}
 import com.daml.lf.data.Ref._
-import com.daml.lf.value.{CidContainer, CidContainer1, CidContainer3, CidMapper, Value}
+import com.daml.lf.value.Value.VersionedValue
+import com.daml.lf.value.{
+  CidContainer,
+  CidContainer1,
+  CidContainer2,
+  CidContainer3,
+  CidMapper,
+  Value,
+}
 
 import scala.language.higherKinds
 import scalaz.Equal
@@ -35,6 +43,7 @@ object Node {
         f: Cid => Cid2,
         g: Val => Val2): GenNode[Nid, Cid2, Val2] =
       GenNode.map3(identity[Nid], f, g)(this)
+
     final def mapNodeId[Nid2](f: Nid => Nid2): GenNode[Nid2, Cid, Val] =
       GenNode.map3(f, identity[Cid], identity[Val])(this)
 
@@ -44,7 +53,7 @@ object Node {
       * However, the our transaction data structure did not include the actors in versions < 5.
       * The usage of this method must thus be restricted to:
       * 1. settings where no fetch nodes appear (for example, the `validate` method of DAMLe, which uses it on root
-      *    nodes, which are guaranteed never to contain a fetch node)
+      * nodes, which are guaranteed never to contain a fetch node)
       * 2. DAML ledger implementations that do not store or process any transactions with version < 5
       *
       */
@@ -204,6 +213,7 @@ object Node {
       with NodeInfo.Create {
 
     override def templateId: TypeConName = coinst.template
+
     override def byKey: Boolean = false
   }
 
@@ -230,10 +240,10 @@ object Node {
     * ledgers.
     *
     * @param controllersDifferFromActors
-    *     When we decode transactions version<6, the controllers might be different
-    *     from the actors.  However, such a transaction is always invalid, so we
-    *     prevalidate that when decoding and report the error when we get to the
-    *     actual validation stage.
+    * When we decode transactions version<6, the controllers might be different
+    * from the actors.  However, such a transaction is always invalid, so we
+    * prevalidate that when decoding and report the error when we get to the
+    * actual validation stage.
     */
   final case class NodeExercises[+Nid, +Cid, +Val](
       targetCoid: Cid,
@@ -307,7 +317,9 @@ object Node {
       with NodeInfo.LookupByKey {
 
     override def keyMaintainers: Set[Party] = key.maintainers
+
     override def hasResult: Boolean = result.isDefined
+
     override def byKey: Boolean = true
   }
 
@@ -417,10 +429,40 @@ object Node {
 
   sealed trait WithTxValue2[F[+ _, + _]] {
     type WithTxValue[+Cid] = F[Cid, Transaction.Value[Cid]]
+    type WithValue[+Cid] = F[Cid, Value[Cid]]
   }
 
   sealed trait WithTxValue3[F[+ _, + _, + _]] {
     type WithTxValue[+Nid, +Cid] = F[Nid, Cid, Transaction.Value[Cid]]
+    type WithValue[+Nid, +Cid] = F[Nid, Cid, Value[Cid]]
+
+  }
+
+  case class VersionedNode[Nid, +Cid] private[lf] (
+      version: TransactionVersion,
+      node: GenNode.WithTxValue[Nid, Cid]
+  ) extends CidContainer[VersionedNode[Nid, Cid]]
+      with data.NoCopy {
+    override protected def self: VersionedNode[Nid, Cid] = this
+  }
+
+  object VersionedNode extends CidContainer2[VersionedNode] {
+
+    override private[lf] def map2[A1, B1, A2, B2](
+        f1: A1 => A2,
+        f2: B1 => B2,
+    ): VersionedNode[A1, B1] => VersionedNode[A2, B2] = {
+      case VersionedNode(version, node) =>
+        VersionedNode(version, GenNode.map3(f1, f2, VersionedValue.map1(f2))(node))
+    }
+
+    override private[lf] def foreach2[A, B](
+        f1: A => Unit,
+        f2: B => Unit,
+    ): VersionedNode[A, B] => Unit = {
+      case VersionedNode(_, node) =>
+        GenNode.foreach3(f1, f2, VersionedValue.foreach1(f2))(node)
+    }
   }
 
 }

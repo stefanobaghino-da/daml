@@ -169,7 +169,7 @@ class Engine(val config: EngineConfig = EngineConfig.Stable) {
       submissionSeed: crypto.Hash,
   ): Result[(SubmittedTransaction, Tx.Metadata)] =
     for {
-      commandsWithCids <- preprocessor.translateTransactionRoots(tx.transaction)
+      commandsWithCids <- preprocessor.translateTransactionRoots(tx)
       (commands, globalCids) = commandsWithCids
       result <- interpretCommands(
         validating = true,

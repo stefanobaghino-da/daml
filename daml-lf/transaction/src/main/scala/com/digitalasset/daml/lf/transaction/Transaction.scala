@@ -8,7 +8,7 @@ import com.daml.lf.data.Ref._
 import com.daml.lf.data._
 import com.daml.lf.language.LanguageVersion
 import com.daml.lf.ledger.FailedAuthorization
-import com.daml.lf.transaction.GenTransaction.WithTxValue
+import com.daml.lf.transaction.Node.VersionedNode
 import com.daml.lf.value.Value
 import scalaz.Equal
 
@@ -17,7 +17,8 @@ import scala.collection.immutable.HashMap
 
 final case class VersionedTransaction[Nid, +Cid] private[lf] (
     version: TransactionVersion,
-    private[lf] val transaction: GenTransaction.WithTxValue[Nid, Cid],
+    versionedNodes: HashMap[Nid, VersionedNode[Nid, Cid]],
+    override val roots: ImmArray[Nid]
 ) extends HasTxNodes[Nid, Cid, Transaction.Value[Cid]]
     with value.CidContainer[VersionedTransaction[Nid, Cid]]
     with NoCopy {
@@ -26,10 +27,7 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
 
   @deprecated("use resolveRelCid/ensureNoCid/ensureNoRelCid", since = "0.13.52")
   def mapContractId[Cid2](f: Cid => Cid2): VersionedTransaction[Nid, Cid2] =
-    VersionedTransaction(
-      version,
-      transaction = GenTransaction.map3(identity[Nid], f, Value.VersionedValue.map1(f))(transaction)
-    )
+    VersionedTransaction.map2(identity[Nid], f)(this)
 
   /** Increase the `version` if appropriate for `languageVersions`.
     *
@@ -54,39 +52,54 @@ final case class VersionedTransaction[Nid, +Cid] private[lf] (
     import Implicits._
     VersionedTransaction(
       latestWhenAllPresent(version, languageVersions map (a => a: SpecifiedVersion): _*),
-      transaction,
+      versionedNodes,
+      roots
     )
   }
 
-  override def nodes: HashMap[Nid, Node.GenNode.WithTxValue[Nid, Cid]] =
-    transaction.nodes
+  override lazy val nodes: Map[Nid, Node.GenNode.WithTxValue[Nid, Cid]] =
+    versionedNodes.mapValues(_.node)
 
-  override def roots: ImmArray[Nid] =
-    transaction.roots
+  private[lf] def transaction: GenTransaction.WithTxValue[Nid, Cid] =
+    GenTransaction(nodes, roots)
+
 }
 
 object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
 
-  override private[lf] def map2[A1, B1, C1, A2, B2, C2](
+  override private[lf] def map2[A1, B1, A2, B2](
       f1: A1 => A2,
       f2: B1 => B2,
   ): VersionedTransaction[A1, B1] => VersionedTransaction[A2, B2] = {
-    case VersionedTransaction(version, transaction) =>
-      VersionedTransaction(version, transaction.map3(f1, f2, Value.VersionedValue.map1(f2)))
+    case VersionedTransaction(version, versionedNodes, roots) =>
+      val f = VersionedNode.map2(f1, f2)
+      VersionedTransaction(
+        version,
+        versionedNodes.map {
+          case (nid, node) =>
+            f1(nid) -> f(node)
+        },
+        roots.map(f1),
+      )
   }
 
   override private[lf] def foreach2[A, B](
       f1: A => Unit,
       f2: B => Unit,
   ): VersionedTransaction[A, B] => Unit = {
-    case VersionedTransaction(_, transaction) =>
-      transaction.foreach3(f1, f2, Value.VersionedValue.foreach1(f2))
+    case VersionedTransaction(_, versionedNodes, _) =>
+      val f = VersionedNode.foreach2(f1, f2)
+      versionedNodes.foreach {
+        case (nid, node) =>
+          f1(nid)
+          f(node)
+      }
   }
 
   private[lf] def unapply[Nid, Cid](
       arg: VersionedTransaction[Nid, Cid],
-  ): Some[(TransactionVersion, WithTxValue[Nid, Cid])] =
-    Some((arg.version, arg.transaction))
+  ): Option[(TransactionVersion, HashMap[Nid, VersionedNode[Nid, Cid]], ImmArray[Nid])] =
+    Some((arg.version, arg.versionedNodes, arg.roots))
 
 }
 
@@ -102,7 +115,7 @@ object VersionedTransaction extends value.CidContainer2[VersionedTransaction] {
   * Therefore, it is '''forbidden''' to create ill-formed instances, i.e., instances with `!isWellFormed.isEmpty`.
   */
 final case class GenTransaction[Nid, +Cid, +Val](
-    nodes: HashMap[Nid, Node.GenNode[Nid, Cid, Val]],
+    nodes: Map[Nid, Node.GenNode[Nid, Cid, Val]],
     roots: ImmArray[Nid],
 ) extends HasTxNodes[Nid, Cid, Val]
     with value.CidContainer[GenTransaction[Nid, Cid, Val]] {
@@ -279,7 +292,7 @@ final case class GenTransaction[Nid, +Cid, +Val](
 
 sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
 
-  def nodes: HashMap[Nid, Node.GenNode[Nid, Cid, Val]]
+  def nodes: Map[Nid, Node.GenNode[Nid, Cid, Val]]
 
   def roots: ImmArray[Nid]
 
@@ -438,6 +451,7 @@ sealed abstract class HasTxNodes[Nid, +Cid, +Val] {
 object GenTransaction extends value.CidContainer3[GenTransaction] {
 
   type WithTxValue[Nid, +Cid] = GenTransaction[Nid, Cid, Transaction.Value[Cid]]
+  type WithValue[Nid, +Cid] = GenTransaction[Nid, Cid, Value[Cid]]
 
   private[this] val Empty =
     GenTransaction[Nothing, Nothing, Nothing](
@@ -605,8 +619,8 @@ object Transaction {
   final case class ContractNotActive(
       coid: Value.ContractId,
       templateId: TypeConName,
-      consumedBy: transaction.NodeId)
-      extends TransactionError
+      consumedBy: transaction.NodeId,
+  ) extends TransactionError
 
   final case class AuthFailureDuringExecution(
       nid: transaction.NodeId,

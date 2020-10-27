@@ -4,7 +4,7 @@
 package com.daml.lf
 package transaction
 
-import com.daml.lf.data.{BackStack, Ref}
+import com.daml.lf.data.{BackStack, ImmArray, Ref}
 import com.daml.lf.transaction.TransactionOuterClass.Node.NodeTypeCase
 import com.daml.lf.data.Ref.{Name, Party}
 import com.daml.lf.transaction.Node._
@@ -19,6 +19,7 @@ import scalaz.syntax.traverse.ToTraverseOps
 import scalaz.std.either.eitherMonad
 import scalaz.std.option._
 
+import scala.annotation.tailrec
 import scala.collection.immutable.HashMap
 
 object TransactionCoder {
@@ -511,31 +512,34 @@ object TransactionCoder {
   private[transaction] def encodeTransactionWithCustomVersion[Nid, Cid](
       encodeNid: EncodeNid[Nid],
       encodeCid: ValueCoder.EncodeCid[Cid],
-      transaction: VersionedTransaction[Nid, Cid],
+      tx: VersionedTransaction[Nid, Cid],
   ): Either[EncodeError, TransactionOuterClass.Transaction] = {
-    val tx = transaction.transaction
-    val txVersion: TransactionVersion = transaction.version
-    val builder = tx
-      .fold[Either[EncodeError, TransactionOuterClass.Transaction.Builder]](
-        Right(TransactionOuterClass.Transaction.newBuilder()),
-      ) {
-        case (builderOrError, (id, node)) =>
-          for {
-            builder <- builderOrError
-            encodedNode <- encodeNode(
-              encodeNid,
-              encodeCid,
-              txVersion,
-              id,
-              node,
-            )
-          } yield builder.addNodes(encodedNode)
+    val builder = TransactionOuterClass.Transaction.newBuilder()
+
+    @tailrec
+    def loop(versionedNodes: Stream[(Nid, VersionedNode[Nid, Cid])])
+      : Either[EncodeError, TransactionOuterClass.Transaction] =
+      versionedNodes match {
+        case (nid, VersionedNode(tx.version, node)) #:: rest =>
+          encodeNode(encodeNid, encodeCid, tx.version, nid, node) match {
+            case Right(value) =>
+              builder.addNodes(value)
+              loop(rest)
+            case Left(err) => Left(err)
+          }
+        case (_, VersionedNode(version, _)) #:: _ =>
+          Left(EncodeError(
+            s"version of the node does not match the version of the transaction, expected ${tx.version} but gut $version."))
+        case Stream.Empty =>
+          tx.roots.foreach { nid =>
+            builder.addRoots(encodeNid.asString(nid))
+            ()
+          }
+          Right(builder.build())
       }
-    builder.map(b => {
-      b.setVersion(transaction.version.protoValue)
-        .addAllRoots(tx.roots.map(encodeNid.asString).toSeq.asJava)
-        .build()
-    })
+
+    loop(tx.versionedNodes.toStream)
+
   }
 
   def decodeVersion(vs: String): Either[DecodeError, TransactionVersion] =
@@ -571,7 +575,7 @@ object TransactionCoder {
         version,
         protoTx,
       )
-    } yield VersionedTransaction(version, tx)
+    } yield tx
 
   /**
     * Reads a [[GenTransaction[Nid, Cid]]] from protobuf. Does not check if
@@ -585,31 +589,53 @@ object TransactionCoder {
     * @tparam Cid contract id type
     * @return  decoded transaction
     */
-  private def decodeTransaction[Nid, Cid](
+  def decodeTransaction[Nid, Cid](
       decodeNid: DecodeNid[Nid],
       decodeCid: ValueCoder.DecodeCid[Cid],
-      txVersion: TransactionVersion,
+      version: TransactionVersion,
       protoTx: TransactionOuterClass.Transaction,
-  ): Either[DecodeError, GenTransaction[Nid, Cid, Value.VersionedValue[Cid]]] = {
-    val roots = protoTx.getRootsList.asScala
-      .foldLeft[Either[DecodeError, BackStack[Nid]]](Right(BackStack.empty[Nid])) {
-        case (Right(acc), s) => decodeNid.fromString(s).map(acc :+ _)
-        case (Left(e), _) => Left(e)
-      }
-      .map(_.toImmArray)
+  ): Either[DecodeError, VersionedTransaction[Nid, Cid]] = {
 
-    val nodes = protoTx.getNodesList.asScala
-      .foldLeft[Either[DecodeError, HashMap[Nid, GenNode[Nid, Cid, Value.VersionedValue[Cid]]]]](
-        Right(HashMap.empty)) {
-        case (Left(e), _) => Left(e)
-        case (Right(acc), s) =>
-          decodeNode(decodeNid, decodeCid, txVersion, s).map(acc + _)
+    @tailrec
+    def loop1(
+        protoNodes: Stream[TransactionOuterClass.Node],
+        acc: HashMap[Nid, VersionedNode[Nid, Cid]] = HashMap.empty,
+    ): Either[DecodeError, HashMap[Nid, VersionedNode[Nid, Cid]]] =
+      protoNodes match {
+        case protoNode #:: rest =>
+          decodeNode(decodeNid, decodeCid, version, protoNode) match {
+            case Right((nid, node)) => loop1(rest, acc.updated(nid, VersionedNode(version, node)))
+            case Left(err) => Left(err)
+          }
+        case Stream.Empty =>
+          Right(acc)
+      }
+
+    @tailrec
+    def loop2(
+        nids: Stream[String],
+        acc: BackStack[Nid] = BackStack.empty,
+    ): Either[DecodeError, ImmArray[Nid]] =
+      nids match {
+        case nodeId #:: rest =>
+          decodeNid.fromString(nodeId) match {
+            case Right(value) => loop2(rest, acc :+ value)
+            case Left(err) => Left(err)
+          }
+        case Stream.Empty =>
+          Right(acc.toImmArray)
       }
 
     for {
-      rs <- roots
-      ns <- nodes
-    } yield GenTransaction(ns, rs)
+      versionedNodes <- loop1(protoTx.getNodesList.iterator().asScala.toStream)
+      roots <- loop2(protoTx.getRootsList.iterator().asScala.toStream)
+    } yield
+      VersionedTransaction(
+        version,
+        versionedNodes,
+        roots
+      )
+
   }
 
   def toPartySet(strList: ProtocolStringList): Either[DecodeError, Set[Party]] = {

@@ -6,7 +6,7 @@ package engine
 package preprocessing
 
 import com.daml.lf.data.{BackStack, ImmArray}
-import com.daml.lf.transaction.{GenTransaction, Node, NodeId}
+import com.daml.lf.transaction.{Node, NodeId, VersionedTransaction}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
 
@@ -77,7 +77,7 @@ private[preprocessing] final class TransactionPreprocessor(
 
   @throws[PreprocessorException]
   def unsafeTranslateTransactionRoots[Cid <: Value.ContractId](
-      tx: GenTransaction.WithTxValue[NodeId, Cid],
+      tx: VersionedTransaction[NodeId, Cid],
   ): (ImmArray[speedy.Command], Set[ContractId]) = {
 
     type Acc = ((Set[Value.ContractId], Set[Value.ContractId]), BackStack[speedy.Command])

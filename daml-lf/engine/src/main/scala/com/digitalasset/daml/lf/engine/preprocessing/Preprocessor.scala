@@ -10,7 +10,7 @@ import java.util
 import com.daml.lf.data.{ImmArray, Ref}
 import com.daml.lf.language.Ast
 import com.daml.lf.speedy.SValue
-import com.daml.lf.transaction.{GenTransaction, Node, NodeId}
+import com.daml.lf.transaction.{Node, NodeId, VersionedTransaction}
 import com.daml.lf.value.Value
 
 import scala.annotation.tailrec
@@ -178,7 +178,7 @@ private[engine] final class Preprocessor(compiledPackages: MutableCompiledPackag
     }
 
   def translateTransactionRoots[Cid <: Value.ContractId](
-      tx: GenTransaction.WithTxValue[NodeId, Cid],
+      tx: VersionedTransaction[NodeId, Cid],
   ): Result[(ImmArray[speedy.Command], Set[Value.ContractId])] =
     safelyRun(
       getDependencies(List.empty, tx.roots.toList.map(id => getTemplateId(tx.nodes(id))))
