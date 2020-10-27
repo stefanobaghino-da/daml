@@ -27,6 +27,12 @@ steps:
       # to upload to the bazel cache
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
+  - bash: |
+      source dev-env/lib/ensure-nix
+      source dev-env/load.sh
+      bazel clean --expunge
+    displayName: 'bazel clean --expunge'
+
   - bash: ./fmt.sh --test
     displayName: 'Platform-agnostic lints and checks'
     condition: and(succeeded(), eq(variables['Agent.OS'], 'Linux'))
