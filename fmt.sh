@@ -32,7 +32,7 @@ run() {
     log "command failed with return $ret"
     log
     log "run ./fmt.sh to fix the issue"
-    exit 1
+    return 1
   fi
   return 0
 }
@@ -126,4 +126,7 @@ fi
 run scalafmt "${scalafmt_args[@]:-}"
 
 # check for Bazel build files code formatting
-run bazel run "$buildifier_target"
+run bazel run "$buildifier_target" || {
+  tree "$(bazel info output_base)/external/node_nix"
+  exit 1
+}

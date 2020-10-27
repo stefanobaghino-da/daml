@@ -177,6 +177,7 @@ in rec {
 
     # System tools
     shellcheck = pkgs.shellcheck;
+    tree = pkgs.tree;
     curl = bazel_dependencies.curl;
 
     patch = pkgs.patch;
