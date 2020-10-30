@@ -30,6 +30,7 @@ steps:
   - bash: |
       source dev-env/lib/ensure-nix
       source dev-env/load.sh
+      rm -rf ~/.cache/bazel
       bazel clean --expunge
     displayName: 'bazel clean --expunge'
 
