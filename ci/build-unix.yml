@@ -28,10 +28,13 @@ steps:
       GOOGLE_APPLICATION_CREDENTIALS_CONTENT: $(GOOGLE_APPLICATION_CREDENTIALS_CONTENT)
 
   - bash: |
+      set -x
       source dev-env/lib/ensure-nix
       source dev-env/load.sh
+      tree -ugph ~/.cache/bazel
       rm -rf ~/.cache/bazel
       bazel clean --expunge
+      tree -ugph ~/.cache/bazel
     displayName: 'bazel clean --expunge'
 
   - bash: ./fmt.sh --test
