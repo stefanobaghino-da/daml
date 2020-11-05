@@ -5,32 +5,32 @@ package com.daml.lf
 package engine
 package script
 
-import io.grpc.StatusRuntimeException
-
-import scala.annotation.tailrec
-import scala.concurrent.Future
-import scalaz.std.either._
-import scalaz.syntax.traverse._
-import scalaz.{-\/, OneAnd, \/-}
-import spray.json._
+import com.daml.ledger.api.domain.PartyDetails
+import com.daml.ledger.api.v1.value
 import com.daml.lf.data.Ref._
-import com.daml.lf.data.{FrontStack, FrontStackCons, Ref, Struct, Time}
-import com.daml.lf.iface
+import com.daml.lf.data._
 import com.daml.lf.iface.EnvironmentInterface
 import com.daml.lf.iface.reader.InterfaceReader
 import com.daml.lf.language.Ast
 import com.daml.lf.language.Ast._
 import com.daml.lf.speedy.SBuiltin._
 import com.daml.lf.speedy.SExpr._
-import com.daml.lf.speedy.{Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.speedy.SResult._
 import com.daml.lf.speedy.SValue._
+import com.daml.lf.speedy.{Pretty, SExpr, SValue, Speedy}
 import com.daml.lf.value.Value
 import com.daml.lf.value.Value.ContractId
-import com.daml.lf.CompiledPackages
-import com.daml.ledger.api.domain.PartyDetails
-import com.daml.ledger.api.v1.value
+import com.daml.platform.participant.util.LfEngineToApi.toApiIdentifier
 import com.daml.script.converter.ConverterException
+import io.grpc.StatusRuntimeException
+import scalaz.std.list._
+import scalaz.std.either._
+import scalaz.syntax.traverse._
+import scalaz.{-\/, OneAnd, \/-}
+import spray.json._
+
+import scala.annotation.tailrec
+import scala.concurrent.Future
 
 // Helper to create identifiers pointing to the DAML.Script module
 case class ScriptIds(val scriptPackageId: PackageId) {
@@ -74,6 +74,33 @@ object Converter {
   private def toNonEmptySet[A](as: OneAnd[FrontStack, A]): OneAnd[Set, A] = {
     import scalaz.syntax.foldable._
     OneAnd(as.head, as.tail.toSet - as.head)
+  }
+
+  private def fromIdentifier(id: value.Identifier): SValue = {
+    STypeRep(
+      TTyCon(
+        TypeConName(
+          PackageId.assertFromString(id.packageId),
+          QualifiedName(
+            DottedName.assertFromString(id.moduleName),
+            DottedName.assertFromString(id.entityName)))))
+  }
+
+  private def fromTemplateTypeRep(templateId: value.Identifier): SValue = {
+    val templateTypeRepTy = daInternalAny("TemplateTypeRep")
+    record(templateTypeRepTy, ("getTemplateTypeRep", fromIdentifier(templateId)))
+  }
+
+  private def fromAnyContractId(
+      scriptIds: ScriptIds,
+      templateId: value.Identifier,
+      contractId: String): SValue = {
+    val contractIdTy = scriptIds.damlScript("AnyContractId")
+    record(
+      contractIdTy,
+      ("templateId", fromTemplateTypeRep(templateId)),
+      ("contractId", SContractId(ContractId.assertFromString(contractId)))
+    )
   }
 
   def toFuture[T](s: Either[String, T]): Future[T] = s match {
@@ -290,6 +317,40 @@ object Converter {
         .left
         .map(err => s"Failed to translate exercise result: $err")
     } yield translated
+  }
+
+  def translateTransactionTree(
+      scriptIds: ScriptIds,
+      tree: ScriptLedgerClient.TransactionTree): Either[String, SValue] = {
+    def translateTreeEvent(ev: ScriptLedgerClient.TreeEvent): Either[String, SValue] = ev match {
+      case ScriptLedgerClient.Created(tplId, contractId) =>
+        Right(
+          SVariant(
+            scriptIds.damlScript("TreeEvent"),
+            Name.assertFromString("CreatedEvent"),
+            0,
+            record(
+              scriptIds.damlScript("Created"),
+              ("contractId", fromAnyContractId(scriptIds, toApiIdentifier(tplId), contractId.coid)))
+          ))
+      case ScriptLedgerClient.Exercised(childEvents) =>
+        for {
+          evs <- childEvents.traverse(translateTreeEvent(_))
+        } yield
+          SVariant(
+            scriptIds.damlScript("TreeEvent"),
+            Name.assertFromString("ExercisedEvent"),
+            1,
+            record(scriptIds.damlScript("Exercised"), ("childEvents", SList(FrontStack(evs))))
+          )
+    }
+    for {
+      events <- tree.rootEvents.traverse(translateTreeEvent(_)): Either[String, List[SValue]]
+    } yield
+      record(
+        scriptIds.damlScript("SubmitFailure"),
+        ("rootEvents", SList(FrontStack(events)))
+      )
   }
 
   // Given the free applicative for a submit request and the results of that request, we walk over the free applicative and

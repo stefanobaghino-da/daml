@@ -495,6 +495,28 @@ class Runner(compiledPackages: CompiledPackages, script: Script.Action, timeMode
                       }
                     } yield v
                 }
+              case "SubmitTree" =>
+                m2c("record with 4 fields") {
+                  case SRecord(
+                      _,
+                      _,
+                      JavaList(sParty, SRecord(_, _, JavaList(freeAp)), locations, continue)) =>
+                    for {
+                      party <- Converter.toFuture(Converter
+                        .toParty(sParty))
+                      commands <- Converter.toFuture(Converter
+                        .toCommands(extendedCompiledPackages, freeAp))
+                      client <- Converter.toFuture(clients
+                        .getPartyParticipant(party))
+                      commitLocation <- Converter.toFuture(
+                        Converter.toOptionLocation(knownPackages, locations))
+                      submitRes <- client.submitTree(party, commands, commitLocation)
+                      res <- Converter.toFuture(
+                        Converter.translateTransactionTree(script.scriptIds, submitRes))
+                      _ = copyTracelog(client)
+                      v <- run(SEApp(SEValue(continue), Array(SEValue(res))))
+                    } yield v
+                }
               case "Query" =>
                 m2c("record with 3 fields") {
                   case SRecord(_, _, JavaList(sParties, sTplId, continue)) =>

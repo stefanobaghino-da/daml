@@ -141,7 +141,7 @@ def install_java_deps():
             "org.spire-math:kind-projector_2.12:0.9.3",
             "org.tpolecat:doobie-core_2.12:0.9.2",
             "org.tpolecat:doobie-postgres_2.12:0.9.2",
-            "org.typelevel:paiges-core_2.12:0.2.1",
+            "org.typelevel:paiges-core_2.12:0.3.2",
             "org.wartremover:wartremover_2.12.12:2.4.10",
             "org.xerial:sqlite-jdbc:3.30.1",
             # gatling dependencies
