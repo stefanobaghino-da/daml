@@ -73,7 +73,7 @@ stable transaction version the file specifies and the date indicates when the fi
 Such changes may include rewordings and typo corrections in the specification of stable versions and
 arbitrary changes to the specification of the dev transaction version.
 
-A a node, or a transaction of version *n* may be interpreted by consulting any
+A node or a transaction of version *n* may be interpreted by consulting any
 version of this document *m≥n*.  Likewise, any version *q* of the
 transaction specification is sufficient to interpret transactions of any
 version *r≤q*.  In other words, later versions of this specification
