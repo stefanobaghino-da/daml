@@ -91,9 +91,9 @@ possible, but that is irrelevant; semantics defined in later versions of
 this specification may be vital for correctly interpreting transactions
 defined under those later versions, and you must not suppose otherwise.
 
-For example, suppose you have a transaction of version 10.  You can
+For example, suppose you have a transaction of version 12.  You can
 expect it to be interpreted the same by consumers implementing
-specification version 11, 12, 5000, and so on.  On the other hand, you can
+specification version 12, 13, 14, 5000, and so on.  On the other hand, you can
 expect a consumer of version 10 or 11 to reject the message containing
 that transaction, because specification version 12 might define some
 semantics vital to understanding your transaction.
@@ -269,9 +269,9 @@ As of version dev, this optional field is included:
 The field ``version`` is optional.
 
 If present it must be a valid version as described under `field version`_, different from "10", and not newer
-that the version of the enclosing Transaction message. Other it is assumed to be version "10".
+that the version of the enclosing ``Transaction`` message. Otherwise it is assumed to be version "10".
 
-Field field ``create``, ``fetch``, ``exercise`` and  ``lookup`` shall be consumed according to that version.
+The fields ``create``, ``fetch``, ``exercise`` and  ``lookup`` shall be consumed according to that version.
 
 field node_id
 ~~~~~~~~~~~~~
