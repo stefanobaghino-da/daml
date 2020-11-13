@@ -55,9 +55,10 @@ Each version of this scheme, called a transaction version, is associated to a un
 In the following *dev* transaction version will refer to a transaction version associated to a *dev* language version and
 *stable* transaction version will refer to a transaction version associated to a non-*dev* language version.
 
-Unlike the serialization format of a *dev* transaction version which can be changed freely without
-compatibility considerations, the serialization format of a *stable* transaction version cannot be changed
+The serialization format of a *stable* transaction version cannot be changed
 or associated to a different language version once introduced.
+In contrast, the serialization format of a *dev* transaction version can be changed freely without
+compatibility considerations.
 
 An consumer compliant with this specification does not have
 to provide any support for *dev* transaction version. It must however accept
