@@ -82,7 +82,7 @@ need to consult or implement older versions in order to interpret any
 transaction, and you may always simply consult the latest appropriate
 version.
 
-By contrast, a node, or a transaction of version *s* must be rejected by a consumer
+In contrast, a node or a transaction of version *s* must be rejected by a consumer
 that implements this specification of version *t<s*.  So if you produce
 a transaction of version *s*, you may assume that its consumer either
 implements some version *u≥s*, or will reject the message containing the
