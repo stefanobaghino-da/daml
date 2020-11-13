@@ -68,10 +68,10 @@ Every change to ``transaction.proto`` entails a change to this specification.
 `Version history`_ defines a total ordering of all past stable versions; any
 stable version *y* unlisted there should be considered *y>k* for any known
 version *k*.  At the top of the specification file, just under the title
-are written a version number together with a date. While, the version number described the latest
-stable transaction version the file specified, the date indicate when the file was modified for the last time.
-Those changes may included rewording and typo correction in the specification of stable versions and
-arbitrary change in specification of a dev transaction versions.
+are written a version number together with a date. The version number describes the latest
+stable transaction version the file specifies and the date indicates when the file was modified for the last time.
+Such changes may include rewordings and typo corrections in the specification of stable versions and
+arbitrary changes to the specification of the dev transaction version.
 
 A a node, or a transaction of version *n* may be interpreted by consulting any
 version of this document *m≥n*.  Likewise, any version *q* of the
