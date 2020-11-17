@@ -403,8 +403,8 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime: Instant,
       offset: Offset,
       transaction: CommittedTransaction,
-      divulgedContracts: Iterable[DivulgedContract])(
-      implicit loggingContext: LoggingContext): PreparedInsert =
+      divulgedContracts: Iterable[DivulgedContract],
+  )(implicit loggingContext: LoggingContext): PreparedInsert =
     transactionsWriter.prepare(
       submitterInfo,
       workflowId,
@@ -412,7 +412,8 @@ private class JdbcLedgerDao(
       ledgerEffectiveTime,
       offset,
       transaction,
-      divulgedContracts)
+      divulgedContracts,
+    )
 
   override def storeTransaction(
       preparedInsert: PreparedInsert,

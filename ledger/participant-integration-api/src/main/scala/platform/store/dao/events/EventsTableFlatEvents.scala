@@ -16,7 +16,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
-          nodeIndex = nodeIndex,
+          nodeIndex = Integer.parseInt(nodeIndex),
           eventSequentialId = eventSequentialId,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
@@ -41,7 +41,7 @@ private[events] trait EventsTableFlatEvents { this: EventsTable =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
-          nodeIndex = nodeIndex,
+          nodeIndex = Integer.parseInt(nodeIndex),
           eventSequentialId = eventSequentialId,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),

@@ -15,7 +15,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
-          nodeIndex = nodeIndex,
+          nodeIndex = Integer.parseInt(nodeIndex),
           eventSequentialId = eventSequentialId,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
@@ -40,7 +40,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
         EventsTable.Entry(
           eventOffset = eventOffset,
           transactionId = transactionId,
-          nodeIndex = nodeIndex,
+          nodeIndex = Integer.parseInt(nodeIndex),
           eventSequentialId = eventSequentialId,
           ledgerEffectiveTime = ledgerEffectiveTime,
           commandId = commandId.getOrElse(""),
@@ -49,7 +49,7 @@ private[events] trait EventsTableTreeEvents { this: EventsTable =>
             eventId = eventId,
             contractId = contractId,
             templateId = templateId,
-            exerciseConsuming = exerciseConsuming,
+            exerciseConsuming = java.lang.Boolean.parseBoolean(exerciseConsuming),
             exerciseChoice = exerciseChoice,
             exerciseArgument = exerciseArgument,
             exerciseResult = exerciseResult,

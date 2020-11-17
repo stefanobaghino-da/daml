@@ -82,6 +82,23 @@ final class LfValueTranslation(val cache: LfValueTranslation.Cache) {
     )
   }
 
+  def serializeRaw(eventId: EventId, create: Create): (Array[Byte], Option[Array[Byte]]) = {
+    cache.events.put(
+      key = LfValueTranslation.EventCache.Key(eventId),
+      value = LfValueTranslation.EventCache.Value.Create(create.coinst.arg, create.key.map(_.key)),
+    )
+    (serializeCreateArgOrThrow(create), serializeNullableKeyOrThrow(create))
+  }
+
+  def serializeRaw(eventId: EventId, exercise: Exercise): (Array[Byte], Option[Array[Byte]]) = {
+    cache.events.put(
+      key = LfValueTranslation.EventCache.Key(eventId),
+      value =
+        LfValueTranslation.EventCache.Value.Exercise(exercise.chosenValue, exercise.exerciseResult),
+    )
+    (serializeExerciseArgOrThrow(exercise), serializeNullableExerciseResultOrThrow(exercise))
+  }
+
   private def toApiValue(
       value: LfValue,
       verbose: Boolean,

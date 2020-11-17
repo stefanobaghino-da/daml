@@ -448,7 +448,8 @@ private[dao] trait JdbcLedgerDaoSuite extends JdbcLedgerDaoBackend {
       ledgerEffectiveTime,
       offset,
       committedTransaction,
-      divulged)
+      divulged,
+    )
     ledgerDao
       .storeTransaction(
         preparedInsert = preparedTransactionInsert,

@@ -22,7 +22,7 @@ import com.daml.platform.store.DbType
 object TransactionsWriter {
 
   final class PreparedInsert private[TransactionsWriter] (
-      eventBatches: EventsTable.PreparedBatches,
+      eventBatches: EventsTable.SerializedBatches,
       contractBatches: ContractsTable#PreparedBatches,
       deleteWitnessesBatch: Option[BatchSql],
       insertWitnessesBatch: Option[BatchSql],
@@ -30,7 +30,9 @@ object TransactionsWriter {
     def write(metrics: Metrics)(implicit connection: Connection): Unit = {
       import metrics.daml.index.db.storeTransactionDbMetrics
 
-      Timed.value(storeTransactionDbMetrics.eventsBatch, eventBatches.foreach(_.execute()))
+//      println(eventBatches.events.unsafeStatement(connection).toString)
+
+      Timed.value(storeTransactionDbMetrics.eventsBatch, eventBatches.execute())
 
       // Delete the witnesses of contracts that being removed first, to
       // respect the foreign key constraint of the underlying storage
@@ -146,7 +148,7 @@ private[dao] final class TransactionsWriter(
     val disclosureForTransactionTree =
       computeDisclosureForTransactionTree(transaction, blinding)
 
-    val rawEventBatches = EventsTable.prepareBatchInsert(
+    val preparedEventBatches = EventsTable.prepareBatchInsert(
       submitterInfo = submitterInfo,
       workflowId = workflowId,
       transactionId = transactionId,
@@ -179,16 +181,15 @@ private[dao] final class TransactionsWriter(
       blinding = blinding,
     )
 
-    val (serializedEventBatches, serializedContractBatches) =
+    val (eventBatches, serializedContractBatches) =
       Timed.value(
         metrics.daml.index.db.storeTransactionDbMetrics.translationTimer,
         (
-          rawEventBatches.applySerialization(lfValueTranslation),
+          preparedEventBatches.serialize(lfValueTranslation),
           rawContractBatches.applySerialization(lfValueTranslation)
         )
       )
 
-    val eventBatches = serializedEventBatches.applyBatching()
     val contractBatches = serializedContractBatches.applyBatching()
 
     new TransactionsWriter.PreparedInsert(

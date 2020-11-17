@@ -6,7 +6,7 @@ package com.daml.platform.store.dao.events
 import java.io.InputStream
 import java.time.Instant
 
-import anorm.SqlParser.{array, binaryStream, bool, str, int, long}
+import anorm.SqlParser.{array, binaryStream, str, long}
 import anorm.{RowParser, ~}
 import com.daml.ledger.participant.state.v1.Offset
 import com.daml.ledger.api.v1.active_contracts_service.GetActiveContractsResponse
@@ -164,13 +164,13 @@ private[events] object EventsTable
 private[events] trait EventsTable {
 
   private type SharedRow =
-    Offset ~ String ~ Int ~ Long ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~
+    Offset ~ String ~ String ~ Long ~ String ~ String ~ Instant ~ Identifier ~ Option[String] ~
       Option[String] ~ Array[String]
 
   private val sharedRow: RowParser[SharedRow] =
     offset("event_offset") ~
       str("transaction_id") ~
-      int("node_index") ~
+      str("node_index") ~
       long("event_sequential_id") ~
       str("event_id") ~
       str("contract_id") ~
@@ -191,10 +191,10 @@ private[events] trait EventsTable {
       binaryStream("create_key_value").?
 
   protected type ExercisedEventRow =
-    SharedRow ~ Boolean ~ String ~ InputStream ~ Option[InputStream] ~ Array[String] ~ Array[String]
+    SharedRow ~ String ~ String ~ InputStream ~ Option[InputStream] ~ Array[String] ~ Array[String]
   protected val exercisedEventRow: RowParser[ExercisedEventRow] =
     sharedRow ~
-      bool("exercise_consuming") ~
+      str("exercise_consuming") ~
       str("exercise_choice") ~
       binaryStream("exercise_argument") ~
       binaryStream("exercise_result").? ~

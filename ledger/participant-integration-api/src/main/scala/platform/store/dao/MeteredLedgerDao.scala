@@ -194,7 +194,8 @@ private[platform] class MeteredLedgerDao(ledgerDao: LedgerDao, metrics: Metrics)
       ledgerEffectiveTime,
       offset,
       transaction,
-      divulgedContracts)
+      divulgedContracts,
+    )
 
   override def storeRejection(
       submitterInfo: Option[SubmitterInfo],
